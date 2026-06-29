@@ -1,4 +1,6 @@
 """
+validar.py
+----------
 Módulo de validación de archivos de entrada.
 Verifica que los archivos Excel cargados tengan la estructura correcta
 antes de intentar el cruce.
@@ -23,7 +25,7 @@ def cargar_y_validar(ruta: str, nombre: str) -> tuple[pd.DataFrame | None, list[
     errores = []
 
     try:
-        df = pd.read_excel(ruta, skiprows=2, dtype=str)
+        df = pd.read_excel(ruta, skiprows=2, dtype=str, engine="openpyxl")
         df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
     except Exception as e:
         return None, [f"No se pudo leer el archivo {nombre}: {e}"]
