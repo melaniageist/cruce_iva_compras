@@ -199,7 +199,7 @@ with st.sidebar:
     - `iva_105`
     - `importe_total`
 
-    El cruce se realiza por todas las columnas **excepto** `nombre_empresa` e importes.
+    El cruce se realiza por todas las columnas **excepto** `tipo_comprobante` `nombre_empresa` e importes.
     """)
 
 # ── Procesamiento ──────────────────────────────────────────────────────────
