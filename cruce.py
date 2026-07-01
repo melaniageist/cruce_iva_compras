@@ -9,9 +9,10 @@ import pandas as pd
 
 
 # Columnas que se usan para identificar un comprobante de forma única
+# Nota: tipo_comprobante se excluye del cruce porque puede diferir
+# entre sistemas (ej. "FAC A" vs "FACTURA A")
 COLUMNAS_CRUCE = [
     "fecha",
-    "tipo_comprobante",
     "punto_de_venta",
     "nro_factura",
     "cuit",
@@ -28,7 +29,7 @@ COLUMNAS_IMPORTES = [
 ]
 
 # Todas las columnas esperadas en los archivos de entrada
-COLUMNAS_ESPERADAS = COLUMNAS_CRUCE + ["nombre_empresa"] + COLUMNAS_IMPORTES
+COLUMNAS_ESPERADAS = COLUMNAS_CRUCE + ["tipo_comprobante", "nombre_empresa"] + COLUMNAS_IMPORTES
 
 
 def validar_columnas(df: pd.DataFrame, nombre_archivo: str) -> list[str]:
@@ -46,12 +47,38 @@ def validar_columnas(df: pd.DataFrame, nombre_archivo: str) -> list[str]:
     return faltantes
 
 
+def _normalizar_fecha(valor: str) -> str:
+    """
+    Normaliza un valor de fecha eliminando la parte de hora si existe.
+
+    Acepta formatos como:
+    - '01/06/2025'
+    - '01/06/2025 00:00:00'
+    - '2025-06-01 00:00:00'
+    - '2025-06-01'
+
+    Args:
+        valor: Cadena de texto con la fecha a normalizar.
+
+    Returns:
+        Fecha en formato DD/MM/AAAA como string.
+    """
+    try:
+        # Intentar parsear con pandas que acepta múltiples formatos
+        fecha = pd.to_datetime(valor, dayfirst=True)
+        return fecha.strftime("%d/%m/%Y")
+    except Exception:
+        # Si no se puede parsear, devolver el valor original limpio
+        return str(valor).strip().split(" ")[0]
+
+
 def normalizar(df: pd.DataFrame) -> pd.DataFrame:
     """
     Normaliza el DataFrame para asegurar consistencia antes del cruce.
 
     Convierte columnas de texto a mayúsculas sin espacios extra,
-    y columnas numéricas a float redondeado a 2 decimales.
+    normaliza fechas eliminando la parte de hora, y convierte
+    columnas numéricas a float redondeado a 2 decimales.
 
     Args:
         df: DataFrame a normalizar.
@@ -61,11 +88,17 @@ def normalizar(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    columnas_texto = COLUMNAS_CRUCE + ["nombre_empresa"]
+    # Normalizar fecha: eliminar hora si viene con timestamp (ej. ARCA)
+    if "fecha" in df.columns:
+        df["fecha"] = df["fecha"].astype(str).apply(_normalizar_fecha)
+
+    # Normalizar columnas de texto del cruce (excepto fecha, ya procesada)
+    columnas_texto = [c for c in COLUMNAS_CRUCE if c != "fecha"] + ["tipo_comprobante", "nombre_empresa"]
     for col in columnas_texto:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip().str.upper()
 
+    # Normalizar columnas numéricas
     for col in COLUMNAS_IMPORTES:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(2)
@@ -77,7 +110,7 @@ def cruzar(df_cont: pd.DataFrame, df_arca: pd.DataFrame) -> list[dict]:
     """
     Realiza el cruce entre los datos de Contabilidad y ARCA.
 
-    Compara fila por fila usando las columnas clave (fecha, tipo, PDV,
+    Compara fila por fila usando las columnas clave (fecha, PDV,
     número de factura y CUIT). Para cada comprobante determina si hay
     match, diferencia de importes, o si está solo en uno de los dos archivos.
 
