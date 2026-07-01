@@ -1,293 +1,193 @@
 """
-main.py
--------
-Punto de entrada de la aplicación Cruce IVA Compras.
-Interfaz web construida con Streamlit.
-
-Uso:
-    streamlit run main.py
+cruce.py
+--------
+Módulo propio del proyecto Cruce IVA Compras.
+Contiene la lógica de cruce entre el archivo de Contabilidad y el de ARCA.
 """
 
-import streamlit as st
 import pandas as pd
-from cruce import cruzar, resumen
-from validar import cargar_y_validar
-from exportar import exportar_excel
 
 
-# ── Configuración de la página ─────────────────────────────────────────────
-st.set_page_config(
-    page_title="Cruce IVA Compras",
-    page_icon="🧾",
-    layout="wide",
-)
-
-# ── Estilos personalizados ─────────────────────────────────────────────────
-st.markdown("""
-<style>
-    .block-container { padding-top: 1.5rem; }
-    .estado-badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 700;
-    }
-    div[data-testid="metric-container"] {
-        background: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 12px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-COLORES_ESTADO = {
-    "match":             {"bg": "#e6f4ea", "color": "#1e8c45", "label": "✅ Match"},
-    "diferencia":        {"bg": "#fff8e1", "color": "#b06000", "label": "⚠️ Diferencia"},
-    "solo_contabilidad": {"bg": "#fce8e6", "color": "#c5221f", "label": "❌ Solo Contab."},
-    "solo_arca":         {"bg": "#e8f0fe", "color": "#1a73e8", "label": "🔵 Solo ARCA"},
-}
-
-COLUMNAS_CRUCE_DISPLAY = [
-    "fecha", "tipo_comprobante", "punto_de_venta",
-    "nro_factura", "cuit", "nombre_empresa",
-    "importe_gravado", "importe_no_gravado",
-    "iva_21", "iva_27", "iva_105", "importe_total",
+# Columnas que se usan para identificar un comprobante de forma única
+# Nota: tipo_comprobante se excluye del cruce porque puede diferir
+# entre sistemas (ej. "FAC A" vs "FACTURA A")
+COLUMNAS_CRUCE = [
+    "fecha",
+    "punto_de_venta",
+    "nro_factura",
+    "cuit",
 ]
 
+# Columnas de importes donde se detectan diferencias
+COLUMNAS_IMPORTES = [
+    "importe_gravado",
+    "importe_no_gravado",
+    "iva_21",
+    "iva_27",
+    "iva_105",
+    "importe_total",
+]
 
-def badge(estado: str) -> str:
-    """Devuelve HTML de un badge de color según el estado del comprobante."""
-    cfg = COLORES_ESTADO[estado]
-    return (
-        f'<span class="estado-badge" '
-        f'style="background:{cfg["bg"]};color:{cfg["color"]}">'
-        f'{cfg["label"]}</span>'
-    )
+# Todas las columnas esperadas en los archivos de entrada
+COLUMNAS_ESPERADAS = COLUMNAS_CRUCE + ["tipo_comprobante", "nombre_empresa"] + COLUMNAS_IMPORTES
 
 
-def tabla_resultados(resultados: list[dict], filtro: str) -> None:
+def validar_columnas(df: pd.DataFrame, nombre_archivo: str) -> list[str]:
     """
-    Muestra la tabla de resultados filtrada por estado.
+    Verifica que el DataFrame tenga todas las columnas esperadas.
 
     Args:
-        resultados: Lista de resultados del cruce.
-        filtro: Estado por el cual filtrar ("todos" o un estado específico).
+        df: DataFrame leído desde el archivo Excel.
+        nombre_archivo: Nombre del archivo para mostrar en los mensajes de error.
+
+    Returns:
+        Lista de columnas faltantes. Lista vacía si el archivo es válido.
     """
-    filas = resultados if filtro == "todos" else [r for r in resultados if r["estado"] == filtro]
+    faltantes = [col for col in COLUMNAS_ESPERADAS if col not in df.columns]
+    return faltantes
 
-    if not filas:
-        st.info("No hay comprobantes para este filtro.")
-        return
 
-    registros = []
-    for r in filas:
-        datos = r["contabilidad"] or r["arca"]
-        clave = r["clave"]
-        fila = dict(zip(["fecha", "tipo_comprobante", "punto_de_venta", "nro_factura", "cuit"], clave))
-        fila.update(datos or {})
-        fila["estado"] = COLORES_ESTADO[r["estado"]]["label"]
-        fila["diferencias"] = ", ".join(r["diferencias"]) if r["diferencias"] else "—"
-        registros.append(fila)
+def _normalizar_fecha(valor: str) -> str:
+    """
+    Normaliza un valor de fecha eliminando la parte de hora si existe.
 
-    df_display = pd.DataFrame(registros)
+    Acepta formatos como:
+    - '01/06/2025'
+    - '01/06/2025 00:00:00'
+    - '2025-06-01 00:00:00'
+    - '2025-06-01'
 
-    cols_mostrar = [
-        "estado", "fecha", "tipo_comprobante", "punto_de_venta",
-        "nro_factura", "cuit", "nombre_empresa", "importe_total", "diferencias"
+    Args:
+        valor: Cadena de texto con la fecha a normalizar.
+
+    Returns:
+        Fecha en formato DD/MM/AAAA como string.
+    """
+    try:
+        # Intentar parsear con pandas que acepta múltiples formatos
+        fecha = pd.to_datetime(valor, dayfirst=True)
+        return fecha.strftime("%d/%m/%Y")
+    except Exception:
+        # Si no se puede parsear, devolver el valor original limpio
+        return str(valor).strip().split(" ")[0]
+
+
+def normalizar(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normaliza el DataFrame para asegurar consistencia antes del cruce.
+
+    Convierte columnas de texto a mayúsculas sin espacios extra,
+    normaliza fechas eliminando la parte de hora, y convierte
+    columnas numéricas a float redondeado a 2 decimales.
+
+    Args:
+        df: DataFrame a normalizar.
+
+    Returns:
+        DataFrame normalizado.
+    """
+    df = df.copy()
+
+    # Normalizar fecha: eliminar hora si viene con timestamp (ej. ARCA)
+    if "fecha" in df.columns:
+        df["fecha"] = df["fecha"].astype(str).apply(_normalizar_fecha)
+
+    # Normalizar columnas de texto del cruce (excepto fecha, ya procesada)
+    columnas_texto = [c for c in COLUMNAS_CRUCE if c != "fecha"] + ["tipo_comprobante", "nombre_empresa"]
+    for col in columnas_texto:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip().str.upper()
+
+    # Normalizar columnas numéricas
+    for col in COLUMNAS_IMPORTES:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(2)
+
+    return df
+
+
+def cruzar(df_cont: pd.DataFrame, df_arca: pd.DataFrame) -> list[dict]:
+    """
+    Realiza el cruce entre los datos de Contabilidad y ARCA.
+
+    Compara fila por fila usando las columnas clave (fecha, PDV,
+    número de factura y CUIT). Para cada comprobante determina si hay
+    match, diferencia de importes, o si está solo en uno de los dos archivos.
+
+    Args:
+        df_cont: DataFrame con los datos de Contabilidad, ya normalizado.
+        df_arca: DataFrame con los datos de ARCA, ya normalizado.
+
+    Returns:
+        Lista de diccionarios, uno por comprobante, con las claves:
+        - estado: "match" | "diferencia" | "solo_contabilidad" | "solo_arca"
+        - contabilidad: dict con los datos del lado contabilidad (o None)
+        - arca: dict con los datos del lado ARCA (o None)
+        - diferencias: lista de columnas con diferencia de importe
+    """
+    df_cont = df_cont.set_index(COLUMNAS_CRUCE)
+    df_arca = df_arca.set_index(COLUMNAS_CRUCE)
+
+    todos_los_indices = df_cont.index.union(df_arca.index)
+    resultados = []
+
+    for clave in todos_los_indices:
+        en_cont = clave in df_cont.index
+        en_arca = clave in df_arca.index
+
+        fila_cont = df_cont.loc[clave].to_dict() if en_cont else None
+        fila_arca = df_arca.loc[clave].to_dict() if en_arca else None
+
+        if en_cont and en_arca:
+            diferencias = _detectar_diferencias(fila_cont, fila_arca)
+            estado = "diferencia" if diferencias else "match"
+        elif en_cont:
+            estado = "solo_contabilidad"
+            diferencias = []
+        else:
+            estado = "solo_arca"
+            diferencias = []
+
+        resultados.append({
+            "estado": estado,
+            "clave": clave,
+            "contabilidad": fila_cont,
+            "arca": fila_arca,
+            "diferencias": diferencias,
+        })
+
+    return resultados
+
+
+def _detectar_diferencias(fila_cont: dict, fila_arca: dict) -> list[str]:
+    """
+    Compara los importes entre dos filas y devuelve las columnas que difieren.
+
+    Args:
+        fila_cont: Diccionario con los datos de Contabilidad.
+        fila_arca: Diccionario con los datos de ARCA.
+
+    Returns:
+        Lista de nombres de columnas donde los valores difieren.
+    """
+    return [
+        col for col in COLUMNAS_IMPORTES
+        if round(float(fila_cont.get(col, 0)), 2) != round(float(fila_arca.get(col, 0)), 2)
     ]
-    cols_presentes = [c for c in cols_mostrar if c in df_display.columns]
-    st.dataframe(
-        df_display[cols_presentes],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "estado":           st.column_config.TextColumn("Estado", width=140),
-            "fecha":            st.column_config.TextColumn("Fecha", width=100),
-            "tipo_comprobante": st.column_config.TextColumn("Tipo", width=80),
-            "punto_de_venta":   st.column_config.TextColumn("PDV", width=70),
-            "nro_factura":      st.column_config.TextColumn("Nro. Factura", width=120),
-            "cuit":             st.column_config.TextColumn("CUIT", width=150),
-            "nombre_empresa":   st.column_config.TextColumn("Nombre"),
-            "importe_total":    st.column_config.NumberColumn("Total", format="$%.2f", width=120),
-            "diferencias":      st.column_config.TextColumn("Campos con diferencia"),
-        }
-    )
-    st.caption(f"{len(filas)} comprobante(s) mostrados.")
 
 
-# ── Layout principal ───────────────────────────────────────────────────────
+def resumen(resultados: list[dict]) -> dict:
+    """
+    Genera un resumen con la cantidad de comprobantes por estado.
 
-st.title("🧾 Cruce IVA Compras")
-st.markdown("**Contabilidad vs. ARCA** — Cargá los dos archivos para iniciar el cruce.")
+    Args:
+        resultados: Lista de resultados devuelta por cruzar().
 
-# ── Carga de archivos ──────────────────────────────────────────────────────
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("📒 Contabilidad")
-    archivo_cont = st.file_uploader(
-        "Subí el archivo de Contabilidad",
-        type=["xlsx"],
-        key="cont",
-        help="Debe tener el formato de la plantilla. Descargala desde el sidebar."
-    )
-
-with col2:
-    st.subheader("🏛 ARCA")
-    archivo_arca = st.file_uploader(
-        "Subí el archivo de ARCA",
-        type=["xlsx"],
-        key="arca",
-        help="Debe tener el formato de la plantilla. Descargala desde el sidebar."
-    )
-
-# ── Sidebar: plantillas y ayuda ────────────────────────────────────────────
-with st.sidebar:
-    st.header("📥 Plantillas")
-    st.markdown("Usá estas plantillas para preparar tus archivos:")
-
-    for nombre_archivo in ["plantilla_contabilidad.xlsx", "plantilla_arca.xlsx"]:
-        try:
-            with open(f"ejemplos/{nombre_archivo}", "rb") as f:
-                st.download_button(
-                    label=f"⬇️ {nombre_archivo}",
-                    data=f.read(),
-                    file_name=nombre_archivo,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
-        except FileNotFoundError:
-            st.warning(f"No se encontró {nombre_archivo}")
-
-    st.divider()
-    st.header("🧪 Archivos de ejemplo")
-    st.markdown("Probá el programa con estos datos ficticios:")
-
-    for nombre_archivo in ["contabilidad_ejemplo.xlsx", "arca_ejemplo.xlsx"]:
-        try:
-            with open(f"ejemplos/{nombre_archivo}", "rb") as f:
-                st.download_button(
-                    label=f"⬇️ {nombre_archivo}",
-                    data=f.read(),
-                    file_name=nombre_archivo,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
-        except FileNotFoundError:
-            st.warning(f"No se encontró {nombre_archivo}")
-
-    st.divider()
-    st.header("ℹ️ Columnas esperadas")
-    st.markdown("""
-    Ambos archivos deben tener exactamente estas columnas:
-    - `fecha`
-    - `tipo_comprobante`
-    - `punto_de_venta`
-    - `nro_factura`
-    - `cuit`
-    - `nombre_empresa`
-    - `importe_gravado`
-    - `importe_no_gravado`
-    - `iva_21`
-    - `iva_27`
-    - `iva_105`
-    - `importe_total`
-
-    El cruce se realiza por todas las columnas **excepto** `nombre_empresa` e importes.
-    """)
-
-# ── Procesamiento ──────────────────────────────────────────────────────────
-if archivo_cont and archivo_arca:
-    st.divider()
-
-    with st.spinner("Validando y procesando archivos..."):
-        df_cont, errores_cont = cargar_y_validar(archivo_cont, "Contabilidad")
-        df_arca, errores_arca = cargar_y_validar(archivo_arca, "ARCA")
-
-    # Mostrar errores de validación si los hay
-    if errores_cont:
-        st.error("**Errores en el archivo de Contabilidad:**")
-        for e in errores_cont:
-            st.markdown(f"- {e}")
-
-    if errores_arca:
-        st.error("**Errores en el archivo de ARCA:**")
-        for e in errores_arca:
-            st.markdown(f"- {e}")
-
-    if errores_cont or errores_arca:
-        st.stop()
-
-    # Cruce
-    resultados = cruzar(df_cont, df_arca)
-    datos_resumen = resumen(resultados)
-
-    # ── Tarjetas de resumen ────────────────────────────────────────────────
-    st.subheader("📊 Resumen del cruce")
-    c1, c2, c3, c4, c5 = st.columns(5)
-
-    c1.metric("Total", datos_resumen["total"])
-    c2.metric("✅ Match", datos_resumen["match"])
-    c3.metric("⚠️ Diferencias", datos_resumen["diferencia"])
-    c4.metric("❌ Solo Contab.", datos_resumen["solo_contabilidad"])
-    c5.metric("🔵 Solo ARCA", datos_resumen["solo_arca"])
-
-    # ── Filtros y tabla ────────────────────────────────────────────────────
-    st.subheader("📋 Detalle por comprobante")
-
-    opciones = {
-        "Todos":                "todos",
-        "✅ Match":             "match",
-        "⚠️ Diferencias":      "diferencia",
-        "❌ Solo Contabilidad": "solo_contabilidad",
-        "🔵 Solo ARCA":        "solo_arca",
-    }
-
-    col_filtro, col_busqueda = st.columns([3, 2])
-    with col_filtro:
-        filtro_label = st.radio(
-            "Filtrar por estado:",
-            options=list(opciones.keys()),
-            horizontal=True,
-        )
-    with col_busqueda:
-        busqueda = st.text_input("🔍 Buscar por CUIT, nro. factura o nombre", "")
-
-    filtro = opciones[filtro_label]
-
-    # Aplicar búsqueda de texto
-    resultados_filtrados = resultados
-    if busqueda.strip():
-        q = busqueda.strip().upper()
-        resultados_filtrados = [
-            r for r in resultados
-            if any(
-                q in str(v).upper()
-                for v in ((r["contabilidad"] or r["arca"]) or {}).values()
-            )
-            or any(q in str(v).upper() for v in r["clave"])
-        ]
-
-    tabla_resultados(resultados_filtrados, filtro)
-
-    # ── Exportar ───────────────────────────────────────────────────────────
-    st.divider()
-    st.subheader("📥 Exportar resultados")
-
-    col_exp1, col_exp2 = st.columns([2, 3])
-    with col_exp1:
-        if st.button("Generar Excel de resultados", type="primary", use_container_width=True):
-            with st.spinner("Generando archivo..."):
-                excel_bytes = exportar_excel(resultados, datos_resumen)
-            st.download_button(
-                label="⬇️ Descargar Excel",
-                data=excel_bytes,
-                file_name="cruce_iva_resultado.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-    with col_exp2:
-        st.info("El Excel incluye una hoja por estado (Match, Diferencias, Solo Contabilidad, Solo ARCA) y una hoja de Resumen.")
-
-else:
-    st.info("👆 Cargá los dos archivos para iniciar el cruce.")
+    Returns:
+        Diccionario con conteos por estado y total general.
+    """
+    conteos = {"match": 0, "diferencia": 0, "solo_contabilidad": 0, "solo_arca": 0}
+    for r in resultados:
+        conteos[r["estado"]] += 1
+    conteos["total"] = len(resultados)
+    return conteos
