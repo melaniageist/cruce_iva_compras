@@ -51,11 +51,11 @@ ANCHOS_SIMPLES = [14, 18, 14, 16, 20, 28, 14, 16, 10, 10, 12, 16]
 ANCHOS_DOBLES  = [14, 18, 14, 16, 20, 28] + [13] * (len(COLUMNAS_IMPORTES) * 2) + [13]
 
 
-def _fill(color: str) -> PatternFill:
+def crear_relleno(color: str) -> PatternFill:
     return PatternFill("solid", fgColor=color)
 
 
-def _font(color: str = "212529", bold: bool = False, size: int = 10) -> Font:
+def crear_fuente(color: str = "212529", bold: bool = False, size: int = 10) -> Font:
     return Font(name="Arial", color=color, bold=bold, size=size)
 
 
@@ -66,14 +66,14 @@ def _escribir_titulo(ws, titulo: str, subtitulo: str, ncols: int) -> None:
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
     ws["A1"] = titulo
     ws["A1"].font = Font(name="Arial", bold=True, color="FFFFFF", size=13)
-    ws["A1"].fill = _fill(COLOR_HEADER)
+    ws["A1"].fill = crear_relleno(COLOR_HEADER)
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 28
 
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
     ws["A2"] = subtitulo
     ws["A2"].font = Font(name="Arial", color="888888", size=9, italic=True)
-    ws["A2"].fill = _fill(COLOR_HEADER)
+    ws["A2"].fill = crear_relleno(COLOR_HEADER)
     ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[2].height = 16
 
@@ -84,8 +84,8 @@ def _escribir_fila_encabezado(ws, fila: int, columnas: list, color_hdr: str = CO
 
     for col, nombre in enumerate(columnas, 1):
         c = ws.cell(row=fila, column=col, value=nombre)
-        c.font = _font("FFFFFF", bold=True)
-        c.fill = _fill(color_hdr)
+        c.font = crear_fuente("FFFFFF", bold=True)
+        c.fill = crear_relleno(color_hdr)
         c.alignment = Alignment(horizontal="center", vertical="center")
         c.border = BORDE
     ws.row_dimensions[fila].height = 20
@@ -98,8 +98,8 @@ def _escribir_fila_datos(ws, fila: int, valores: list, color_bg: str, color_ft: 
     numericas = set(COLUMNAS_IMPORTES) | {f"{c}_cont" for c in COLUMNAS_IMPORTES} | {f"{c}_arca" for c in COLUMNAS_IMPORTES} | {"dif_total"}
     for col, (nombre_col, valor) in enumerate(valores, 1):
         c = ws.cell(row=fila, column=col, value=valor)
-        c.font = _font(color_ft)
-        c.fill = _fill(color_bg)
+        c.font = crear_fuente(color_ft)
+        c.fill = crear_relleno(color_bg)
         c.border = BORDE
         c.alignment = Alignment(
             horizontal="right" if nombre_col in numericas else "left",
@@ -128,25 +128,34 @@ def _fila_a_lista(clave, datos: dict | None, columnas: list) -> list:
     return [(col, fila.get(col, None)) for col in columnas]
 
 
-def _escribir_total(ws, fila: int, n_fijas: int, n_cols: int, color_bg: str, color_ft: str) -> None:
+def _escribir_total(ws, fila: int, n_col_fijas: int, n_cols: int, color_bg: str, color_ft: str) -> None:
 
     """Escribe una fila de totales con fórmulas SUM al final de la tabla."""
 
-    for col in range(1, n_fijas + 1):
-        c = ws.cell(row=fila, column=col)
-        c.fill = _fill(color_bg)
-        c.border = BORDE
-    ws.cell(row=fila, column=n_fijas, value="TOTAL").font = _font("555555", bold=True)
-    ws.cell(row=fila, column=n_fijas).alignment = Alignment(horizontal="right")
+    for columna in range(1, n_col_fijas + 1):
+        celda = ws.cell(row=fila, column=columna)
+        celda.fill = crear_relleno(color_bg)
+        celda.border = BORDE
+    celda_total = ws.cell(row=fila, column=n_col_fijas, value="TOTAL")
+    celda_total.font = crear_fuente("555555", bold=True)
+    celda_total.alignment = Alignment(horizontal="right")
 
-    for col in range(n_fijas + 1, n_cols + 1):
-        letra = get_column_letter(col)
-        c = ws.cell(row=fila, column=col, value=f"=SUM({letra}4:{letra}{fila - 1})")
-        c.font = _font(color_ft, bold=True)
-        c.fill = _fill(color_bg)
-        c.border = BORDE
-        c.alignment = Alignment(horizontal="right", vertical="center")
-        c.number_format = "#,##0.00"
+    for columna in range(n_col_fijas + 1, n_cols + 1):
+        letra_columna = get_column_letter(columna)
+
+        celda = ws.cell(
+            row=fila,
+            column=columna,
+            value=f"=SUM({letra_columna}4:{letra_columna}{fila - 1})",
+        )
+        
+
+        celda.font = crear_fuente(color_ft, bold=True)
+        celda.fill = crear_relleno(color_bg)
+        celda.border = BORDE
+        celda.alignment = Alignment(horizontal="right", vertical="center")
+        celda.number_format = "#,##0.00"
+
     ws.row_dimensions[fila].height = 18
 
 
@@ -188,28 +197,28 @@ def _hoja_diferencias(wb: Workbook, filas: list) -> None:
     # Sub-encabezados agrupados
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=n_fijas)
     ws["A3"] = "Identificación del comprobante"
-    ws["A3"].font = _font("FFFFFF", bold=True)
-    ws["A3"].fill = _fill(COLOR_SUBHEADER)
+    ws["A3"].font = crear_fuente("FFFFFF", bold=True)
+    ws["A3"].fill = crear_relleno(COLOR_SUBHEADER)
     ws["A3"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[3].height = 18
 
     col_cont_ini = n_fijas + 1
     col_cont_fin = n_fijas + len(COLUMNAS_IMPORTES)
     ws.merge_cells(start_row=3, start_column=col_cont_ini, end_row=3, end_column=col_cont_fin)
-    ws.cell(3, col_cont_ini, "📒 CONTABILIDAD").font = _font("FFFFFF", bold=True)
-    ws.cell(3, col_cont_ini).fill = _fill(COLOR_MATCH_HDR)
+    ws.cell(3, col_cont_ini, "📒 CONTABILIDAD").font = crear_fuente("FFFFFF", bold=True)
+    ws.cell(3, col_cont_ini).fill = crear_relleno(COLOR_MATCH_HDR)
     ws.cell(3, col_cont_ini).alignment = Alignment(horizontal="center", vertical="center")
 
     col_arca_ini = col_cont_fin + 1
     col_arca_fin = col_cont_fin + len(COLUMNAS_IMPORTES)
     ws.merge_cells(start_row=3, start_column=col_arca_ini, end_row=3, end_column=col_arca_fin)
-    ws.cell(3, col_arca_ini, "🏛 ARCA").font = _font("FFFFFF", bold=True)
-    ws.cell(3, col_arca_ini).fill = _fill(COLOR_SOLO_A_HDR)
+    ws.cell(3, col_arca_ini, "🏛 ARCA").font = crear_fuente("FFFFFF", bold=True)
+    ws.cell(3, col_arca_ini).fill = crear_relleno(COLOR_SOLO_A_HDR)
     ws.cell(3, col_arca_ini).alignment = Alignment(horizontal="center", vertical="center")
 
     col_dif = col_arca_fin + 1
-    ws.cell(3, col_dif, "Dif. Total").font = _font("FFFFFF", bold=True)
-    ws.cell(3, col_dif).fill = _fill("8A6000")
+    ws.cell(3, col_dif, "Dif. Total").font = crear_fuente("FFFFFF", bold=True)
+    ws.cell(3, col_dif).fill = crear_relleno("8A6000")
     ws.cell(3, col_dif).alignment = Alignment(horizontal="center", vertical="center")
     ws.cell(3, col_dif).border = BORDE
 
@@ -227,8 +236,8 @@ def _hoja_diferencias(wb: Workbook, filas: list) -> None:
 
         for col, nombre in enumerate(COLUMNAS_CRUCE + ["nombre_empresa"], 1):
             c = ws.cell(row=i, column=col, value=fila_base.get(nombre, ""))
-            c.font = _font()
-            c.fill = _fill(alt)
+            c.font = crear_fuente()
+            c.fill = crear_relleno(alt)
             c.border = BORDE
             c.alignment = Alignment(horizontal="left", vertical="center")
 
@@ -237,8 +246,8 @@ def _hoja_diferencias(wb: Workbook, filas: list) -> None:
             col = col_cont_ini + j
             val = cont.get(col_imp, 0)
             c = ws.cell(row=i, column=col, value=val)
-            c.font = _font()
-            c.fill = _fill(alt)
+            c.font = crear_fuente()
+            c.fill = crear_relleno(alt)
             c.border = BORDE
             c.alignment = Alignment(horizontal="right", vertical="center")
             c.number_format = "#,##0.00"
@@ -250,8 +259,8 @@ def _hoja_diferencias(wb: Workbook, filas: list) -> None:
             val_cont = cont.get(col_imp, 0)
             es_dif = col_imp in r["diferencias"]
             c = ws.cell(row=i, column=col, value=val_arca)
-            c.font = _font(bold=es_dif)
-            c.fill = _fill(COLOR_DIFF_CELDA if es_dif else alt)
+            c.font = crear_fuente(bold=es_dif)
+            c.fill = crear_relleno(COLOR_DIFF_CELDA if es_dif else alt)
             c.border = BORDE
             c.alignment = Alignment(horizontal="right", vertical="center")
             c.number_format = "#,##0.00"
@@ -260,8 +269,8 @@ def _hoja_diferencias(wb: Workbook, filas: list) -> None:
         letra_cont = get_column_letter(col_cont_ini + COLUMNAS_IMPORTES.index("importe_total"))
         letra_arca = get_column_letter(col_arca_ini + COLUMNAS_IMPORTES.index("importe_total"))
         c = ws.cell(row=i, column=col_dif, value=f"={letra_cont}{i}-{letra_arca}{i}")
-        c.font = _font(COLOR_DIFF_FT, bold=True)
-        c.fill = _fill(COLOR_DIFF_CELDA)
+        c.font = crear_fuente(COLOR_DIFF_FT, bold=True)
+        c.fill = crear_relleno(COLOR_DIFF_CELDA)
         c.border = BORDE
         c.alignment = Alignment(horizontal="right", vertical="center")
         c.number_format = "#,##0.00"
@@ -295,34 +304,34 @@ def _hoja_resumen(wb: Workbook, resumen: dict) -> None:
         total = resumen.get("total", 1)
         pct = cant / total if total else 0
 
-        ws.cell(fila, 1, label).font = _font(ft, bold=True)
-        ws.cell(fila, 1).fill = _fill(bg); ws.cell(fila, 1).border = BORDE
+        ws.cell(fila, 1, label).font = crear_fuente(ft, bold=True)
+        ws.cell(fila, 1).fill = crear_relleno(bg); ws.cell(fila, 1).border = BORDE
         ws.cell(fila, 1).alignment = Alignment(horizontal="left", vertical="center")
 
-        ws.cell(fila, 2, cant).font = _font(ft, bold=True)
-        ws.cell(fila, 2).fill = _fill(bg); ws.cell(fila, 2).border = BORDE
+        ws.cell(fila, 2, cant).font = crear_fuente(ft, bold=True)
+        ws.cell(fila, 2).fill = crear_relleno(bg); ws.cell(fila, 2).border = BORDE
         ws.cell(fila, 2).alignment = Alignment(horizontal="center", vertical="center")
 
-        ws.cell(fila, 3, pct).font = _font(ft)
-        ws.cell(fila, 3).fill = _fill(bg); ws.cell(fila, 3).border = BORDE
+        ws.cell(fila, 3, pct).font = crear_fuente(ft)
+        ws.cell(fila, 3).fill = crear_relleno(bg); ws.cell(fila, 3).border = BORDE
         ws.cell(fila, 3).number_format = "0.0%"
         ws.cell(fila, 3).alignment = Alignment(horizontal="center", vertical="center")
 
         for col in [4, 5]:
-            ws.cell(fila, col, "—").font = _font("AAAAAA")
-            ws.cell(fila, col).fill = _fill(bg); ws.cell(fila, col).border = BORDE
+            ws.cell(fila, col, "—").font = crear_fuente("AAAAAA")
+            ws.cell(fila, col).fill = crear_relleno(bg); ws.cell(fila, col).border = BORDE
             ws.cell(fila, col).alignment = Alignment(horizontal="right", vertical="center")
 
         ws.row_dimensions[fila].height = 18
 
     # Fila total
-    ws.cell(8, 1, "TOTAL GENERAL").font = _font("FFFFFF", bold=True)
-    ws.cell(8, 1).fill = _fill(COLOR_SUBHEADER); ws.cell(8, 1).border = BORDE
-    ws.cell(8, 2, resumen.get("total", 0)).font = _font("FFFFFF", bold=True)
-    ws.cell(8, 2).fill = _fill(COLOR_SUBHEADER); ws.cell(8, 2).border = BORDE
+    ws.cell(8, 1, "TOTAL GENERAL").font = crear_fuente("FFFFFF", bold=True)
+    ws.cell(8, 1).fill = crear_relleno(COLOR_SUBHEADER); ws.cell(8, 1).border = BORDE
+    ws.cell(8, 2, resumen.get("total", 0)).font = crear_fuente("FFFFFF", bold=True)
+    ws.cell(8, 2).fill = crear_relleno(COLOR_SUBHEADER); ws.cell(8, 2).border = BORDE
     ws.cell(8, 2).alignment = Alignment(horizontal="center", vertical="center")
     for col in [3, 4, 5]:
-        ws.cell(8, col).fill = _fill(COLOR_SUBHEADER); ws.cell(8, col).border = BORDE
+        ws.cell(8, col).fill = crear_relleno(COLOR_SUBHEADER); ws.cell(8, col).border = BORDE
     ws.row_dimensions[8].height = 20
 
 
