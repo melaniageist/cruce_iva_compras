@@ -11,22 +11,29 @@ from cruce import COLUMNAS_IMPORTES, COLUMNAS_CRUCE
 
 
 # ── Paleta de colores ──────────────────────────────────────────────────────
+# Colores generales
 COLOR_HEADER      = "1A1A2E"
 COLOR_SUBHEADER   = "3C3C5A"
+# Colores base
+COLOR_ALT         = "F8F9FA"
+COLOR_WHITE       = "FFFFFF"
+# Colores de coincidencia
 COLOR_MATCH_BG    = "E6F4EA"
 COLOR_MATCH_FT    = "1E8C45"
 COLOR_MATCH_HDR   = "1E6B36"
+# Colores de diferencias
 COLOR_DIFF_BG     = "FFF8E1"
 COLOR_DIFF_FT     = "B06000"
 COLOR_DIFF_CELDA  = "FFE082"
+# Colores Solo Conta
 COLOR_SOLO_C_BG   = "FCE8E6"
 COLOR_SOLO_C_FT   = "C5221F"
 COLOR_SOLO_C_HDR  = "8B1A1A"
+# Colores solo ARCA
 COLOR_SOLO_A_BG   = "E8F0FE"
 COLOR_SOLO_A_FT   = "1A73E8"
 COLOR_SOLO_A_HDR  = "1558B0"
-COLOR_ALT         = "F8F9FA"
-COLOR_WHITE       = "FFFFFF"
+
 
 _thin = Side(style="thin", color="CCCCCC")
 BORDE = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)

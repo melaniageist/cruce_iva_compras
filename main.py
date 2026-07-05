@@ -58,7 +58,9 @@ COLUMNAS_CRUCE_DISPLAY = [
 
 
 def badge(estado: str) -> str:
+
     """Devuelve HTML de un badge de color según el estado del comprobante."""
+
     cfg = COLORES_ESTADO[estado]
     return (
         f'<span class="estado-badge" '
@@ -75,6 +77,7 @@ def tabla_resultados(resultados: list[dict], filtro: str) -> None:
         resultados: Lista de resultados del cruce.
         filtro: Estado por el cual filtrar ("todos" o un estado específico).
     """
+    
     filas = resultados if filtro == "todos" else [r for r in resultados if r["estado"] == filtro]
 
     if not filas:
@@ -199,7 +202,7 @@ with st.sidebar:
     - `iva_105`
     - `importe_total`
 
-    El cruce se realiza por todas las columnas **excepto** `tipo_comprobante` `nombre_empresa` e importes.
+    El cruce se realiza por todas las columnas **excepto** `tipo_comprobante` y `nombre_empresa`.
     """)
 
 # ── Procesamiento ──────────────────────────────────────────────────────────

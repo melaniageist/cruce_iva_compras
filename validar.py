@@ -52,7 +52,7 @@ def describir_columnas() -> str:
     """
     descripciones = {
         "fecha": "Fecha del comprobante en formato DD/MM/AAAA",
-        "tipo_comprobante": "Tipo de comprobante (FAC A, FAC B, NC A, etc.)",
+        "tipo_comprobante": "Tipo de comprobante (no se usa para el cruce)",
         "punto_de_venta": "Punto de venta con ceros a la izquierda (ej: 0001)",
         "nro_factura": "Número de factura con ceros a la izquierda (ej: 00000123)",
         "cuit": "CUIT del proveedor en formato XX-XXXXXXXX-X",
