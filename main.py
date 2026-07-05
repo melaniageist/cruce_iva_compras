@@ -1,6 +1,4 @@
 """
-main.py
--------
 Punto de entrada de la aplicación Cruce IVA Compras.
 Interfaz web construida con Streamlit.
 
@@ -45,7 +43,7 @@ st.markdown("""
 COLORES_ESTADO = {
     "match":             {"bg": "#e6f4ea", "color": "#1e8c45", "label": "✅ Match"},
     "diferencia":        {"bg": "#fff8e1", "color": "#b06000", "label": "⚠️ Diferencia"},
-    "solo_contabilidad": {"bg": "#fce8e6", "color": "#c5221f", "label": "❌ Solo Contab."},
+    "solo_contabilidad": {"bg": "#fce8e6", "color": "#c5221f", "label": "❌ Solo Contabilidad"},
     "solo_arca":         {"bg": "#e8f0fe", "color": "#1a73e8", "label": "🔵 Solo ARCA"},
 }
 
