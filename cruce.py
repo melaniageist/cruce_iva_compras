@@ -6,6 +6,7 @@ Contiene la lógica de cruce entre el archivo de Contabilidad y el de ARCA.
 """
 
 import pandas as pd
+from datetime import datetime
 
 
 # Columnas que se usan para identificar un comprobante de forma única
@@ -63,13 +64,18 @@ def _normalizar_fecha(valor: str) -> str:
     Returns:
         Fecha en formato DD/MM/AAAA como string.
     """
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        return valor.strftime("%d/%m/%Y")
+    
     try:
-        # Intentar parsear con pandas que acepta múltiples formatos
-        fecha = pd.to_datetime(valor, dayfirst=True)
+        fecha = pd.to_datetime(str(valor), format="%d/%m/%Y")
         return fecha.strftime("%d/%m/%Y")
-    except Exception:
-        # Si no se puede parsear, devolver el valor original limpio
-        return str(valor).strip().split(" ")[0]
+    except ValueError:
+        try:
+            fecha = pd.to_datetime(str(valor), format="%Y-%m-%d")
+            return fecha.strftime("%d/%m/%Y")
+        except ValueError:
+            return str(valor).strip()
 
 
 def normalizar(df: pd.DataFrame) -> pd.DataFrame:
@@ -125,8 +131,20 @@ def cruzar(df_cont: pd.DataFrame, df_arca: pd.DataFrame) -> list[dict]:
         - arca: dict con los datos del lado ARCA (o None)
         - diferencias: lista de columnas con diferencia de importe
     """
+    print("=== CONTABILIDAD ===")
+    print(df_cont[["fecha", "punto_de_venta", "nro_factura", "cuit"]].head())
+
+    print("\n=== ARCA ===")
+    print(df_arca[["fecha", "punto_de_venta", "nro_factura", "cuit"]].head())
+
     df_cont = df_cont.set_index(COLUMNAS_CRUCE)
     df_arca = df_arca.set_index(COLUMNAS_CRUCE)
+
+    print("\nPrimer índice Contabilidad:")
+    print(repr(df_cont.index[0]))
+
+    print("\nPrimer índice ARCA:")
+    print(repr(df_arca.index[0]))
 
     todos_los_indices = df_cont.index.union(df_arca.index)
     resultados = []
