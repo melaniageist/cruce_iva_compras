@@ -8,7 +8,7 @@ Uso:
 
 import streamlit as st
 import pandas as pd
-from cruce import COLUMNAS_CRUCE, resumen
+from cruce import COLUMNAS_CRUCE, cruzar, resumen
 from validar import cargar_y_validar
 from exportar import exportar_excel
 
