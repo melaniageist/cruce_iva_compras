@@ -13,13 +13,24 @@ from datetime import datetime
 # Nota: tipo_comprobante se excluye del cruce porque puede diferir
 # entre sistemas (ej. "FAC A" vs "FACTURA A")
 COLUMNAS_CRUCE = [
-    "fecha",
     "punto_de_venta",
     "nro_factura",
     "cuit",
 ]
 
-# Columnas de importes donde se detectan diferencias
+#Columnas a comparar para detectar diferencias
+
+CAMPOS_A_COMPARAR = [
+    "fecha",
+    "importe_gravado",
+    "importe_no_gravado",
+    "iva_21",
+    "iva_27",
+    "iva_105",
+    "importe_total",
+]
+
+# Columnas de importes
 COLUMNAS_IMPORTES = [
     "importe_gravado",
     "importe_no_gravado",
@@ -193,8 +204,6 @@ def cruzar(df_cont: pd.DataFrame, df_arca: pd.DataFrame) -> list[dict]:
     return resultados
 
 
-
-
 def _detectar_diferencias(fila_cont: dict, fila_arca: dict) -> list[str]:
     """
     Compara los importes entre dos filas y devuelve las columnas que difieren.
@@ -206,11 +215,17 @@ def _detectar_diferencias(fila_cont: dict, fila_arca: dict) -> list[str]:
     Returns:
         Lista de nombres de columnas donde los valores difieren.
     """
-    return [
-        col for col in COLUMNAS_IMPORTES
-        if round(float(fila_cont.get(col, 0)), 2) != round(float(fila_arca.get(col, 0)), 2)
-    ]
+    diferencias = []
 
+    for campo in CAMPOS_A_COMPARAR:
+        if campo == "fecha":
+            if fila_cont["fecha"] != fila_arca["fecha"]:
+                diferencias.append("fecha")
+        else:
+            if round(float(fila_cont.get(campo, 0)), 2) != round(float(fila_arca.get(campo, 0)), 2):
+                diferencias.append(campo)
+
+    return diferencias
 
 def resumen(resultados: list[dict]) -> dict:
     """
