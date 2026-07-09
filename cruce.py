@@ -47,8 +47,8 @@ def validar_columnas(df: pd.DataFrame, nombre_archivo: str) -> list[str]:
     faltantes = [col for col in COLUMNAS_ESPERADAS if col not in df.columns]
     return faltantes
 
+def _normalizar_fecha(valor) -> str:
 
-def _normalizar_fecha(valor: str) -> str:
     """
     Normaliza un valor de fecha eliminando la parte de hora si existe.
 
@@ -64,18 +64,34 @@ def _normalizar_fecha(valor: str) -> str:
     Returns:
         Fecha en formato DD/MM/AAAA como string.
     """
-    if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.strftime("%d/%m/%Y")
     
-    try:
-        fecha = pd.to_datetime(str(valor), format="%d/%m/%Y")
-        return fecha.strftime("%d/%m/%Y")
-    except ValueError:
+    if pd.isna(valor):
+        return ""
+
+    # Si ya es una fecha de Excel
+    if isinstance(valor, pd.Timestamp):
+        return valor.strftime("%d/%m/%Y")
+
+    texto = str(valor).strip()
+
+    # Si viene con hora
+    texto = texto.split(" ")[0]
+
+    # Si ya está DD/MM/AAAA
+    if "/" in texto:
         try:
-            fecha = pd.to_datetime(str(valor), format="%Y-%m-%d")
-            return fecha.strftime("%d/%m/%Y")
+            return datetime.strptime(texto, "%d/%m/%Y").strftime("%d/%m/%Y")
         except ValueError:
-            return str(valor).strip()
+            pass
+
+    # Si viene AAAA-MM-DD
+    if "-" in texto:
+        try:
+            return datetime.strptime(texto, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except ValueError:
+            pass
+
+    return texto
 
 
 def normalizar(df: pd.DataFrame) -> pd.DataFrame:
@@ -96,7 +112,7 @@ def normalizar(df: pd.DataFrame) -> pd.DataFrame:
 
     # Normalizar fecha: eliminar hora si viene con timestamp (ej. ARCA)
     if "fecha" in df.columns:
-        df["fecha"] = df["fecha"].astype(str).apply(_normalizar_fecha)
+        df["fecha"] = df["fecha"].apply(_normalizar_fecha)
 
     # Normalizar columnas de texto del cruce (excepto fecha, ya procesada)
     columnas_texto = [c for c in COLUMNAS_CRUCE if c != "fecha"] + ["tipo_comprobante", "nombre_empresa"]
