@@ -12,7 +12,7 @@ Dado un archivo Excel de **Contabilidad** y uno de **ARCA**, el programa:
 2. Cruza los comprobantes por: `fecha`, `tipo_comprobante`, `punto_de_venta`, `nro_factura` y `cuit`.
 3. Clasifica cada comprobante en uno de cuatro estados:
    - ✅ **Match** — figura en ambos archivos con los mismos importes.
-   - ⚠️ **Diferencia** — figura en ambos pero con algún importe distinto.
+   - ⚠️ **Diferencia** — figura en ambos pero con importe o fecha distintos.
    - ❌ **Solo Contabilidad** — está en Contabilidad pero no en ARCA.
    - 🔵 **Solo ARCA** — está en ARCA pero no en Contabilidad.
 4. Muestra los resultados en una tabla filtrable e interactiva.
@@ -26,7 +26,7 @@ Dado un archivo Excel de **Contabilidad** y uno de **ARCA**, el programa:
 cruce_iva/
 │
 ├── main.py              # Punto de entrada — interfaz Streamlit
-├── cruce.py             # Lógica del cruce (módulo propio)
+├── cruce.py             # Lógica del cruce
 ├── validar.py           # Validación de archivos de entrada
 ├── exportar.py          # Generación del Excel de resultados
 │
@@ -69,7 +69,7 @@ Ambos archivos Excel deben tener exactamente estas columnas (en cualquier orden)
 
 Accedé directamente desde el navegador, sin instalar nada:
 
-🔗 **[Abrir Cruce IVA Compras](https://cruce-iva.streamlit.app)**
+🔗 **[Abrir Cruce IVA Compras](https://cruceiva.streamlit.app)**
 
 ---
 
@@ -83,8 +83,8 @@ Accedé directamente desde el navegador, sin instalar nada:
 
 ```bash
 # 1 — Clonar el repositorio
-git clone https://github.com/tu-usuario/cruce_iva.git
-cd cruce_iva
+git clone https://github.com/tu-usuario/cruce_iva_compras.git
+cd cruce_iva_compras
 
 # 2 — Crear el entorno virtual
 python -m venv venv
@@ -128,6 +128,7 @@ La app se abre automáticamente en `http://localhost:8501`
 
 ## Autora
 
+Melania Geist
 Proyecto desarrollado como trabajo final de **Programación 1**  
 Carrera: Ciencia de Datos — ISTEA  
 Ciclo lectivo: 2026
