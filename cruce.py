@@ -159,6 +159,8 @@ def cruzar(df_cont: pd.DataFrame, df_arca: pd.DataFrame) -> list[dict]:
     return resultados
 
 
+
+
 def _detectar_diferencias(fila_cont: dict, fila_arca: dict) -> list[str]:
     """
     Compara los importes entre dos filas y devuelve las columnas que difieren.

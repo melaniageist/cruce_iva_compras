@@ -8,7 +8,7 @@ Uso:
 
 import streamlit as st
 import pandas as pd
-from cruce import cruzar, resumen
+from cruce import COLUMNAS_CRUCE, resumen
 from validar import cargar_y_validar
 from exportar import exportar_excel
 
@@ -86,7 +86,7 @@ def tabla_resultados(resultados: list[dict], filtro: str) -> None:
     for r in filas:
         datos = r["contabilidad"] or r["arca"]
         clave = r["clave"]
-        fila = dict(zip(["fecha", "tipo_comprobante", "punto_de_venta", "nro_factura", "cuit"], clave))
+        fila = dict(zip(COLUMNAS_CRUCE, clave))
         fila.update(datos or {})
         fila["estado"] = COLORES_ESTADO[r["estado"]]["label"]
         fila["diferencias"] = ", ".join(r["diferencias"]) if r["diferencias"] else "—"
