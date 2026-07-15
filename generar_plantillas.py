@@ -5,6 +5,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import random
+from pathlib import Path
+
+CARPETA_EJEMPLOS = Path("ejemplos")
 
 COLUMNAS = [
     "fecha",
@@ -138,7 +141,7 @@ escribir_fila_datos(ws, 4, ejemplo, color_bg=COLOR_EJEMPLO)
 ws.cell(4, 1).font = Font(name="Arial", size=10, italic=True, color="1A73E8")
 
 ws.freeze_panes = "A4"
-wb.save("/home/claude/cruce_iva/ejemplos/plantilla_contabilidad.xlsx")
+wb.save(CARPETA_EJEMPLOS / "plantilla_contabilidad.xlsx")
 
 # ── 2. Plantilla vacía ARCA ───────────────────────────────────────────────
 
@@ -151,7 +154,7 @@ aplicar_fila_encabezado(ws)
 escribir_fila_datos(ws, 4, ejemplo, color_bg=COLOR_EJEMPLO)
 ws.cell(4, 1).font = Font(name="Arial", size=10, italic=True, color="1A73E8")
 ws.freeze_panes = "A4"
-wb.save("/home/claude/cruce_iva/ejemplos/plantilla_arca.xlsx")
+wb.save(CARPETA_EJEMPLOS / "plantilla_arca.xlsx")
 
 # ── 3. Ejemplo Contabilidad con datos ─────────────────────────────────────
 
@@ -167,7 +170,7 @@ for i, fila in enumerate(filas_ejemplo, 4):
     escribir_fila_datos(ws, i, fila, color_bg=color)
 
 ws.freeze_panes = "A4"
-wb.save("/home/claude/cruce_iva/ejemplos/contabilidad_ejemplo.xlsx")
+wb.save(CARPETA_EJEMPLOS / "contabilidad_ejemplo.xlsx")
 
 # ── 4. Ejemplo ARCA con datos (con diferencias intencionales) ─────────────
 
@@ -206,6 +209,6 @@ for i, fila in enumerate(filas_arca, 4):
     escribir_fila_datos(ws, i, fila, color_bg=color)
 
 ws.freeze_panes = "A4"
-wb.save("/home/claude/cruce_iva/ejemplos/arca_ejemplo.xlsx")
+wb.save(CARPETA_EJEMPLOS / "arca_ejemplo.xlsx")
 
 print("✅ Plantillas y ejemplos generados correctamente.")
