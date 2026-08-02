@@ -38,7 +38,13 @@ COLOR_SOLO_A_HDR  = "1558B0"
 _thin = Side(style="thin", color="CCCCCC")
 BORDE = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
 
-COLUMNAS_SIMPLES = COLUMNAS_CRUCE + ["nombre_empresa"] + COLUMNAS_IMPORTES
+COLUMNAS_SIMPLES = [
+    "fecha",
+    *COLUMNAS_CRUCE,
+    "nombre_empresa",
+    *COLUMNAS_IMPORTES,
+]
+
 COLUMNAS_DOBLES = (
     COLUMNAS_CRUCE
     + ["nombre_empresa"]
@@ -119,13 +125,24 @@ def _set_anchos(ws, anchos: list) -> None:
 
 
 def _fila_a_lista(clave, datos: dict | None, columnas: list) -> list:
+    """
+    Convierte una fila del resultado a una lista ordenada para escribirla en Excel.
+    """
 
-    """Convierte una clave de índice y un dict de datos en lista ordenada."""
+    fila = {}
 
-    fila = dict(zip(COLUMNAS_CRUCE, clave if isinstance(clave, tuple) else (clave,)))
+    # Copiar todos los datos del comprobante (incluida la fecha)
     if datos:
         fila.update(datos)
-    return [(col, fila.get(col, None)) for col in columnas]
+
+    # Completar las columnas que forman la clave
+    if isinstance(clave, tuple):
+        for nombre, valor in zip(COLUMNAS_CRUCE, clave):
+            fila[nombre] = valor
+    else:
+        fila[COLUMNAS_CRUCE[0]] = clave
+
+    return [(col, fila.get(col, "")) for col in columnas]
 
 
 def _escribir_total(ws, fila: int, n_col_fijas: int, n_cols: int, color_bg: str, color_ft: str) -> None:
